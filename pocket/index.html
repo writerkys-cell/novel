@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="주머니">
+<meta name="theme-color" content="#FBF9F3">
+<title>주머니 — 밑작업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   주머니 — 밑작업의 아이폰 짝.
+   여기서는 쌓기만 한다. 한 번 내보낸 것이 밑작업에서 조각 하나가 된다.
+   토큰은 밑작업·2667과 같다. 세 앱은 한 벌이다.
+   ============================================================ */
+:root{
+  --paper:#FBF9F3; --card:#FFFFFF;
+  --ink:#23262C; --ink-soft:#62666E; --ink-faint:#9A9DA4;
+  --line:#E5E1D4; --line-soft:#EFECE2;
+  --indigo:#33517D; --indigo-soft:#EAEEF5;
+  --seal:#B0402D; --seal-soft:#F7EAE6;
+  --amber:#8A6D2F; --amber-soft:#F5EEDD;
+  --sans:'Noto Sans KR',-apple-system,sans-serif;
+  --serif:'Gowun Batang','Noto Serif KR',serif;
+  --kb:0px;              /* 키보드가 차지한 높이 */
+  --composer:96px;       /* 아래 입력칸의 실제 높이 */
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.65;
+  overflow:hidden;overscroll-behavior:none;
+}
+button{font-family:var(--sans);cursor:pointer;touch-action:manipulation}
+::selection{background:var(--indigo-soft)}
+
+/* ---------- 상단 ---------- */
+header{
+  position:fixed;top:0;left:0;right:0;z-index:30;
+  background:rgba(251,249,243,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+  padding:calc(env(safe-area-inset-top) + 9px) 14px 9px;
+  display:flex;align-items:center;gap:8px;
+}
+.book-pick{position:relative;flex:1;min-width:0}
+.book-pick select{
+  position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:16px;
+}
+.book-name{
+  font-family:var(--serif);font-size:17px;font-weight:700;
+  display:flex;align-items:center;gap:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.book-name .caret{font-size:10px;color:var(--ink-faint);flex-shrink:0}
+.hbtn{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);
+  font-size:13.5px;font-weight:500;padding:6px 12px;border-radius:99px;white-space:nowrap;
+  position:relative;
+}
+.hbtn.plain{border-color:transparent;background:none;color:var(--ink-soft);padding:6px 6px;font-size:19px;line-height:1}
+.hbtn .dot{
+  position:absolute;top:2px;right:4px;width:7px;height:7px;border-radius:50%;
+  background:var(--amber);border:1.5px solid var(--paper);
+}
+
+/* ---------- 흐름 ----------
+   아래로 갈수록 나중에 적은 것이다. 새로 적은 것이 손 가까이 온다. */
+#stream{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding:calc(env(safe-area-inset-top) + 62px) 14px calc(var(--composer) + var(--kb) + 16px);
+}
+.piece{margin-bottom:10px}
+.piece .body{
+  background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:12px 15px;
+}
+.piece.sent .body{background:#FCFBF7;border-color:var(--line-soft)}
+.piece .meta{
+  font-size:11.5px;color:var(--ink-faint);margin-bottom:4px;
+  display:flex;align-items:center;gap:7px;
+}
+.piece .meta .no{font-weight:700;color:var(--ink-soft)}
+.piece .text{
+  font-family:var(--serif);font-size:17px;line-height:1.8;
+  white-space:pre-wrap;word-break:break-word;
+}
+.piece.sent .text{color:#6B6F77}
+.piece .acts{display:none;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft)}
+.piece.open .acts{display:flex}
+.acts button{
+  border:1px solid var(--line);background:none;border-radius:8px;
+  font-size:13px;padding:6px 13px;color:var(--ink-soft);
+}
+.acts button.del{color:var(--seal)}
+.acts .spacer{flex:1}
+.piece textarea{
+  width:100%;border:none;background:none;padding:0;resize:none;
+  font-family:var(--serif);font-size:17px;line-height:1.8;color:var(--ink);
+}
+.piece textarea:focus{outline:none}
+
+/* 내보낸 선 — 여기까지가 밑작업에서 조각 하나가 되었다 */
+.sent-line{display:flex;align-items:center;gap:9px;margin:16px 2px 18px}
+.sent-line::before,.sent-line::after{content:"";flex:1;height:1px;background:var(--line)}
+.sent-line span{
+  font-size:11.5px;color:var(--indigo);background:var(--indigo-soft);
+  padding:2px 11px;border-radius:99px;white-space:nowrap;
+}
+.stream-empty{
+  text-align:center;color:var(--ink-faint);font-size:14px;line-height:2;
+  padding:52px 24px;
+}
+.stream-empty b{display:block;font-family:var(--serif);font-size:17px;color:var(--ink-soft);font-weight:400;margin-bottom:10px}
+
+/* ---------- 아래 입력칸 ----------
+   키보드가 올라온 만큼 그대로 따라 올라간다. */
+#composer{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:rgba(251,249,243,.96);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);
+  padding:10px 12px calc(env(safe-area-inset-bottom) + 10px);
+  transform:translateY(calc(-1 * var(--kb)));
+  transition:transform .18s cubic-bezier(.32,.72,0,1);
+}
+body.kb #composer{padding-bottom:10px}
+.composer-row{display:flex;gap:9px;align-items:flex-end}
+#catch{
+  flex:1;min-height:44px;max-height:34vh;
+  border:1px solid var(--line);border-radius:20px;background:var(--card);
+  padding:11px 15px;resize:none;overflow-y:auto;
+  font-family:var(--serif);font-size:17px;line-height:1.7;color:var(--ink);
+}
+#catch:focus{outline:none;border-color:var(--indigo)}
+#catch::placeholder{color:var(--ink-faint);font-family:var(--sans);font-size:15px}
+#btnCatch{
+  flex-shrink:0;width:44px;height:44px;border-radius:50%;border:none;
+  background:var(--indigo);color:#fff;font-size:19px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+#btnCatch:disabled{background:var(--line);color:var(--ink-faint)}
+
+/* ---------- 아래에서 올라오는 시트 ---------- */
+.sheet-bg{
+  position:fixed;inset:0;z-index:60;background:rgba(35,38,44,.4);
+  display:none;align-items:flex-end;
+}
+.sheet-bg.show{display:flex}
+.sheet{
+  width:100%;background:var(--paper);
+  border-radius:18px 18px 0 0;
+  padding:8px 16px calc(env(safe-area-inset-bottom) + 16px);
+  max-height:86vh;overflow-y:auto;
+  animation:rise .24s cubic-bezier(.32,.72,0,1);
+}
+@keyframes rise{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.grip{width:38px;height:4px;border-radius:99px;background:var(--line);margin:6px auto 14px}
+.sheet h3{font-family:var(--serif);font-size:18px;font-weight:700;margin-bottom:5px}
+.sheet p.note{font-size:13px;color:var(--ink-soft);line-height:1.75;margin-bottom:14px}
+.sheet .group{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px}
+.sheet .item{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:14px 15px;border:none;background:none;text-align:left;
+  font-size:15.5px;color:var(--ink);border-top:1px solid var(--line-soft);
+}
+.sheet .item:first-child{border-top:none}
+.sheet .item:active{background:var(--indigo-soft)}
+.sheet .item .sub{display:block;font-size:12.5px;color:var(--ink-faint);margin-top:2px;line-height:1.5}
+.sheet .item .grow{flex:1;min-width:0}
+.sheet .item .mark{color:var(--indigo);font-size:15px}
+.sheet .item.danger{color:var(--seal)}
+.sheet .close{
+  width:100%;padding:14px;border:none;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;font-size:15.5px;font-weight:500;color:var(--ink-soft);
+}
+.sheet .stat{font-size:13px;color:var(--ink-soft);text-align:center;padding:2px 0 14px;line-height:1.8}
+.sheet .stat b{color:var(--ink)}
+
+/* ---------- 토스트 ---------- */
+#toast{
+  position:fixed;left:50%;bottom:calc(var(--composer) + var(--kb) + 18px);
+  transform:translateX(-50%) translateY(10px);
+  background:var(--ink);color:#fff;font-size:13.5px;padding:9px 18px;border-radius:99px;
+  opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;z-index:80;
+  max-width:86vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- 껍데기: 알림 띠와 저장소 칸 ---------- */
+#bars:empty{display:none;padding:0}
+#bars{position:sticky;top:0;z-index:60}
+.bar{display:flex;align-items:center;gap:10px;padding:9px 16px;font-size:13.5px;line-height:1.5}
+.bar b{font-weight:700}
+.bar .grow{flex:1;min-width:0}
+.bar button{border:none;border-radius:8px;padding:5px 12px;font-size:13px;font-weight:500;white-space:nowrap}
+.bar.readonly{background:var(--seal-soft);color:var(--seal);border-bottom:1px solid #EBD5CF}
+.bar.readonly button{background:var(--seal);color:#fff}
+.bar.update{background:var(--indigo-soft);color:var(--indigo);border-bottom:1px solid #D8E1EF}
+.bar.update button{background:var(--indigo);color:#fff}
+.bar.warn{background:var(--amber-soft);color:var(--amber);border-bottom:1px solid #E7DCC0}
+.bar.warn button{background:var(--amber);color:#fff}
+.store-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--line-soft);font-size:13px}
+.store-row:first-of-type{border-top:none}
+.store-row .k{color:var(--ink-soft);min-width:92px;flex-shrink:0}
+.store-row .v{flex:1;color:var(--ink)}
+.store-row .v.ok{color:var(--green)}
+.store-row .v.no{color:var(--ink-faint)}
+.store-row .v.warn{color:var(--amber)}
+.meter{height:5px;border-radius:99px;background:var(--line-soft);overflow:hidden;margin-top:7px}
+.meter i{display:block;height:100%;background:var(--indigo);border-radius:99px}
+#bars{position:fixed;top:0;left:0;right:0;z-index:70;background:var(--paper);padding-top:env(safe-area-inset-top)}
+header{top:var(--barsH,0px)}
+#stream{padding-top:calc(env(safe-area-inset-top) + 62px + var(--barsH,0px))}
+
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script src="shell.js"></script>
+</head>
+<body>
+<div id="bars"></div>
+
+<header>
+  <div class="book-pick">
+    <div class="book-name"><span id="bookName">새 소설</span><span class="caret">▾</span></div>
+    <select id="bookSelect" aria-label="작품 고르기"></select>
+  </div>
+  <button class="hbtn" id="btnExport">내보내기<span id="exportDot"></span></button>
+  <button class="hbtn plain" id="btnMenu" aria-label="메뉴">⋯</button>
+</header>
+
+<div id="stream"></div>
+
+<div id="composer">
+  <div class="composer-row">
+    <textarea id="catch" rows="1" placeholder="지금 알게 된 것…"
+      enterkeyhint="return" autocapitalize="sentences" autocorrect="on"></textarea>
+    <button id="btnCatch" aria-label="담기" disabled>↑</button>
+  </div>
+</div>
+
+<!-- 내보내기 시트 -->
+<div class="sheet-bg" id="exportSheet">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3>밑작업으로 내보내기</h3>
+    <p class="note">여기서 내보내는 <b id="expCount">0번</b>의 메모가 맥북 밑작업에서 <b>조각 하나</b>가 됩니다. 여러 번에 나누어 적었다는 것과, 그래서 그 안에서도 앞뒤가 어긋날 수 있다는 것은 밑작업이 클로드에게 알립니다.</p>
+    <div class="group" id="expActions">
+      <button class="item" id="expShare"><span class="grow">공유하기<span class="sub">에어드롭으로 맥북에 바로 보냅니다</span></span></button>
+      <button class="item" id="expCopy"><span class="grow">복사하기<span class="sub">맥북 밑작업의 「붙여넣어 가져오기」에 붙여넣으세요</span></span></button>
+      <button class="item" id="expFile"><span class="grow">파일로 저장<span class="sub">JSON 파일을 아이클라우드 등에 내려받습니다</span></span></button>
+    </div>
+    <div class="group">
+      <button class="item" id="expScope"><span class="grow">담을 범위<span class="sub" id="expScopeSub">아직 내보내지 않은 것만</span></span><span class="mark" id="expScopeMark">›</span></button>
+    </div>
+    <button class="close" data-close="exportSheet">닫기</button>
+  </div>
+</div>
+
+<!-- 메뉴 시트 -->
+<div class="sheet-bg" id="menuSheet">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3 id="menuTitle">작품</h3>
+    <div class="stat" id="menuStat"></div>
+    <div class="group">
+      <button class="item" id="mNew"><span class="grow">새 작품</span></button>
+      <button class="item" id="mRename"><span class="grow">이름 바꾸기<span class="sub">맥북 밑작업의 프로젝트 이름과 같게 두면 저절로 찾아 들어갑니다</span></span></button>
+      <button class="item" id="mTidy"><span class="grow">내보낸 메모 비우기<span class="sub">이미 밑작업으로 건너간 것만 지웁니다</span></span></button>
+      <button class="item danger" id="mDelete"><span class="grow">이 작품 지우기</span></button>
+    </div>
+    <div class="group" id="storeActions"></div>
+    <div id="storeRows" style="font-size:13px;padding:0 4px 12px"></div>
+    <p class="note" style="margin:0 0 12px">사파리에서 그냥 열어 두면 한동안 쓰지 않을 때 저장된 것이 지워질 수 있습니다. 공유 버튼의 <b>홈 화면에 추가</b>로 앱처럼 두고 쓰시고, 적은 것은 자주 내보내 두세요.</p>
+    <button class="close" data-close="menuSheet">닫기</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   자료 — IndexedDB "pocketGroundwork"
+   book: {id,name,pieces:[{id,ts,text,sentAt}]}
+   sentAt이 찍힌 메모는 이미 밑작업에서 조각이 된 것이다.
+   ============================================================ */
+const DB_NAME='pocketGroundwork', DB_VER=1;
+let db=null;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const q=indexedDB.open(DB_NAME,DB_VER);
+    q.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('books')) d.createObjectStore('books',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('meta')) d.createObjectStore('meta',{keyPath:'key'});
+    };
+    q.onsuccess=e=>{db=e.target.result;res()};
+    q.onerror=e=>rej(e.target.error);
+  });
+}
+function tx(store,mode,fn){
+  return new Promise((res,rej)=>{
+    const t=db.transaction(store,mode), s=t.objectStore(store);
+    const out=fn(s);
+    t.oncomplete=()=>res(out&&out.result!==undefined?out.result:undefined);
+    t.onerror=e=>rej(e.target.error);
+  });
+}
+const putBook=b=>tx('books','readwrite',s=>s.put(JSON.parse(JSON.stringify(b))));
+const delBook=id=>tx('books','readwrite',s=>s.delete(id));
+const allBooks=()=>new Promise((res,rej)=>{
+  const t=db.transaction('books','readonly'), r=t.objectStore('books').getAll();
+  r.onsuccess=()=>res(r.result||[]); r.onerror=e=>rej(e.target.error);
+});
+const getMeta=k=>new Promise((res,rej)=>{
+  const t=db.transaction('meta','readonly'), r=t.objectStore('meta').get(k);
+  r.onsuccess=()=>res(r.result?r.result.value:null); r.onerror=e=>rej(e.target.error);
+});
+const setMeta=(k,v)=>tx('meta','readwrite',s=>s.put({key:k,value:v}));
+
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const newBook=name=>({id:uid(),name:name||'새 소설',createdAt:Date.now(),pieces:[]});
+let books=[], cur=null, scopeAll=false;
+
+/* ---------- 유틸 ---------- */
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const p2=n=>String(n).padStart(2,'0');
+const fmtDay=ts=>{const d=new Date(ts);return (d.getMonth()+1)+'월 '+d.getDate()+'일'};
+const fmtClock=ts=>{const d=new Date(ts);return p2(d.getMonth()+1)+'.'+p2(d.getDate())+' '+p2(d.getHours())+':'+p2(d.getMinutes())};
+const fmtFile=ts=>{const d=new Date(ts);return ''+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())};
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ============================================================
+   키보드 — 아래에서 올라오는 만큼 입력칸도 함께 올라간다
+   ============================================================ */
+const vv=window.visualViewport;
+function fitKeyboard(){
+  if(!vv) return;
+  const kb=Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  document.documentElement.style.setProperty('--kb', kb+'px');
+  document.body.classList.toggle('kb', kb>40);
+}
+if(vv){
+  vv.addEventListener('resize',()=>{fitKeyboard();stickBottom()});
+  vv.addEventListener('scroll',fitKeyboard);
+}
+/* 입력칸이 커지면 그만큼 흐름의 아래 여백도 늘어난다 — 마지막 메모가 가리지 않게 */
+function measureComposer(){
+  const h=$('#composer').offsetHeight;
+  document.documentElement.style.setProperty('--composer', h+'px');
+}
+if(window.ResizeObserver) new ResizeObserver(measureComposer).observe($('#composer'));
+
+const stream=$('#stream');
+let pinned=true;                       /* 맨 아래에 붙어 있는가 */
+stream.addEventListener('scroll',()=>{
+  pinned = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 90;
+});
+function stickBottom(force){
+  if(!pinned&&!force) return;
+  requestAnimationFrame(()=>{stream.scrollTop=stream.scrollHeight});
+}
+
+/* ============================================================
+   담기
+   ============================================================ */
+const ta=$('#catch');
+function growCatch(){
+  ta.style.height='auto';
+  ta.style.height=Math.min(ta.scrollHeight, Math.round(window.innerHeight*.34))+'px';
+  measureComposer();
+}
+ta.addEventListener('input',()=>{
+  growCatch();
+  $('#btnCatch').disabled=!ta.value.trim();
+  clearTimeout(ta._d); ta._d=setTimeout(()=>setMeta('draft',ta.value),400);
+});
+ta.addEventListener('focus',()=>setTimeout(()=>{fitKeyboard();stickBottom(true)},120));
+
+function addPiece(){
+  const v=ta.value.trim(); if(!v) return;
+  cur.pieces.push({id:uid(),ts:Date.now(),text:v,sentAt:0});
+  ta.value=''; growCatch(); $('#btnCatch').disabled=true; setMeta('draft','');
+  save(); render(); pinned=true; stickBottom(true);
+  ta.focus();                          /* 키보드를 내리지 않는다 — 이어서 적을 수 있게 */
+}
+$('#btnCatch').addEventListener('click',addPiece);
+
+/* ============================================================
+   흐름 그리기
+   ============================================================ */
+let openId=null;
+function render(){
+  const ps=cur.pieces;
+  if(!ps.length){
+    stream.innerHTML='<div class="stream-empty"><b>'+esc(cur.name)+'</b>'+
+      '이야기에 대해 알게 된 것을<br>떠오를 때마다 짧게 담으세요.<br><br>'+
+      '내보내기를 누르면 그때까지 담은 것이<br>밑작업에서 조각 하나가 됩니다.</div>';
+    updateHeader(); return;
+  }
+  const out=[];
+  ps.forEach((p,i)=>{
+    const sent=!!p.sentAt;
+    out.push(
+      '<div class="piece'+(sent?' sent':'')+(openId===p.id?' open':'')+'" data-p="'+p.id+'">'+
+        '<div class="body">'+
+          '<div class="meta"><span class="no">'+(i+1)+'</span><span>'+fmtClock(p.ts)+'</span></div>'+
+          '<div class="text">'+esc(p.text)+'</div>'+
+          '<div class="acts">'+
+            '<button data-edit="'+p.id+'">고치기</button>'+
+            '<span class="spacer"></span>'+
+            '<button class="del" data-del="'+p.id+'">지우기</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>');
+    const next=ps[i+1];
+    if(sent&&(!next||next.sentAt!==p.sentAt))
+      out.push('<div class="sent-line"><span>'+fmtDay(p.sentAt)+' 밑작업으로 · 조각 하나</span></div>');
+  });
+  stream.innerHTML=out.join('');
+  stream.querySelectorAll('.piece').forEach(el=>{
+    el.querySelector('.text').onclick=()=>{ openId=(openId===el.dataset.p)?null:el.dataset.p; render(); };
+  });
+  stream.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPiece(b.dataset.edit));
+  stream.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>delPiece(b.dataset.del));
+  updateHeader();
+}
+function editPiece(id){
+  const p=cur.pieces.find(x=>x.id===id); if(!p) return;
+  const el=stream.querySelector('.piece[data-p="'+id+'"] .body');
+  el.innerHTML='<div class="meta"><span>'+fmtClock(p.ts)+'</span></div>'+
+    '<textarea id="e-'+id+'"></textarea>'+
+    '<div class="acts" style="display:flex">'+
+      '<button id="ok-'+id+'">저장</button><span class="spacer"></span>'+
+      '<button id="no-'+id+'">취소</button></div>';
+  const t=$('#e-'+id); t.value=p.text;
+  t.style.height='auto'; t.style.height=t.scrollHeight+'px';
+  t.addEventListener('input',()=>{t.style.height='auto';t.style.height=t.scrollHeight+'px'});
+  t.focus(); t.setSelectionRange(t.value.length,t.value.length);
+  $('#ok-'+id).onclick=()=>{ const v=t.value.trim(); if(v){p.text=v;save()} openId=null; render(); toast('고쳤습니다'); };
+  $('#no-'+id).onclick=()=>{ openId=null; render(); };
+}
+function delPiece(id){
+  const i=cur.pieces.findIndex(x=>x.id===id); if(i<0) return;
+  if(!confirm('이 메모를 지웁니다.')) return;
+  cur.pieces.splice(i,1); openId=null; save(); render(); toast('지웠습니다');
+}
+
+/* 헤더 — 아직 내보내지 않은 것이 쌓이면 점이 켜진다 */
+const unsent=()=>cur.pieces.filter(p=>!p.sentAt);
+function updateHeader(){
+  $('#bookName').textContent=cur.name;
+  const u=unsent();
+  const old=u.length&&(Date.now()-u[0].ts>2.5*24*3600*1000);
+  $('#exportDot').innerHTML=(u.length>=6||old)?'<span class="dot"></span>':'';
+}
+
+/* ============================================================
+   내보내기 — 한 번의 내보내기가 밑작업의 조각 하나
+   ============================================================ */
+function exportSet(){ return scopeAll?cur.pieces.slice():unsent(); }
+function buildBundle(list){
+  return {
+    app:'밑작업 주머니', version:1,
+    bundleId:uid(), exportedAt:Date.now(),
+    book:cur.name, count:list.length,
+    from:list[0].ts, to:list[list.length-1].ts,
+    pieces:list.map(p=>({id:p.id,ts:p.ts,text:p.text}))
+  };
+}
+function markSent(list){
+  const now=Date.now();
+  list.forEach(p=>{p.sentAt=now});
+  save(); render();
+}
+function openExport(){
+  const n=exportSet().length;
+  $('#expCount').textContent=n+'번';
+  $('#expScopeSub').textContent=scopeAll?'담은 것 전부 (이미 내보낸 것 포함)':'아직 내보내지 않은 것만';
+  $$('#expActions .item').forEach(b=>b.disabled=!n);
+  $('#exportSheet').classList.add('show');
+}
+$('#btnExport').addEventListener('click',()=>{
+  if(!cur.pieces.length) return toast('아직 담은 것이 없습니다');
+  openExport();
+});
+$('#expScope').addEventListener('click',()=>{ scopeAll=!scopeAll; openExport(); });
+
+async function doExport(how){
+  const list=exportSet();
+  if(!list.length) return toast('내보낼 것이 없습니다');
+  const bundle=buildBundle(list);
+  const text=JSON.stringify(bundle,null,2);
+  const name='주머니_'+cur.name.replace(/[\\/:*?"<>|]/g,'')+'_'+fmtFile(Date.now())+'.json';
+  try{
+    if(how==='share'){
+      const file=new File([text],name,{type:'application/json'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:name});
+      }else if(navigator.share){
+        await navigator.share({title:name,text});
+      }else throw new Error('공유를 쓸 수 없습니다');
+    }else if(how==='copy'){
+      await navigator.clipboard.writeText(text);
+    }else{
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+      a.download=name; a.click(); URL.revokeObjectURL(a.href);
+    }
+  }catch(err){
+    if(err && err.name==='AbortError') return;      /* 사용자가 공유를 취소함 */
+    return toast('내보내지 못했습니다: '+(err.message||''));
+  }
+  $('#exportSheet').classList.remove('show');
+  if(!scopeAll) markSent(list);
+  else { markSent(list.filter(p=>!p.sentAt)); }
+  await setMeta('lastExport',Date.now());
+  toast(list.length+'번의 메모를 조각 하나로 내보냈습니다');
+}
+$('#expShare').addEventListener('click',()=>doExport('share'));
+$('#expCopy').addEventListener('click',()=>doExport('copy'));
+$('#expFile').addEventListener('click',()=>doExport('file'));
+
+/* ============================================================
+   작품 고르기와 메뉴
+   ============================================================ */
+function renderBookSelect(){
+  $('#bookSelect').innerHTML=books.map(b=>
+    '<option value="'+b.id+'"'+(b.id===cur.id?' selected':'')+'>'+esc(b.name)+'</option>').join('');
+}
+$('#bookSelect').addEventListener('change',async e=>{
+  cur=books.find(b=>b.id===e.target.value)||books[0];
+  await setMeta('lastBook',cur.id);
+  openId=null; render(); pinned=true; stickBottom(true);
+});
+$('#btnMenu').addEventListener('click',()=>{
+  const u=unsent().length, s=cur.pieces.length-u;
+  const chars=cur.pieces.reduce((a,p)=>a+p.text.length,0);
+  $('#menuTitle').textContent=cur.name;
+  $('#menuStat').innerHTML='담은 것 <b>'+cur.pieces.length+'</b>번 · <b>'+chars.toLocaleString()+'</b>자<br>'+
+    '아직 내보내지 않은 것 <b>'+u.length+'</b>번 · 내보낸 것 '+s+'번';
+  $('#menuSheet').classList.add('show');
+});
+$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).classList.remove('show'));
+$$('.sheet-bg').forEach(bg=>bg.addEventListener('click',e=>{
+  if(e.target===bg) bg.classList.remove('show');
+}));
+$('#mNew').addEventListener('click',async()=>{
+  const n=prompt('새 작품 이름'); if(n===null) return;
+  const b=newBook(n.trim()||'새 소설');
+  books.push(b); cur=b; await putBook(b); await setMeta('lastBook',b.id);
+  renderBookSelect(); render(); $('#menuSheet').classList.remove('show');
+  toast('작품을 만들었습니다');
+});
+$('#mRename').addEventListener('click',()=>{
+  const n=prompt('작품 이름',cur.name); if(n===null) return;
+  const v=n.trim(); if(!v) return;
+  cur.name=v; save(); renderBookSelect(); render();
+  $('#menuSheet').classList.remove('show'); toast('이름을 바꿨습니다');
+});
+$('#mTidy').addEventListener('click',()=>{
+  const gone=cur.pieces.filter(p=>p.sentAt).length;
+  if(!gone) return toast('내보낸 메모가 없습니다');
+  if(!confirm('이미 밑작업으로 건너간 '+gone+'번을 지웁니다.\n맥북 쪽에는 그대로 남아 있습니다.')) return;
+  cur.pieces=cur.pieces.filter(p=>!p.sentAt);
+  save(); render(); $('#menuSheet').classList.remove('show'); toast('비웠습니다');
+});
+$('#mDelete').addEventListener('click',async()=>{
+  if(books.length<=1) return toast('마지막 작품은 지울 수 없습니다');
+  if(!confirm('「'+cur.name+'」과 담긴 메모를 모두 지웁니다.')) return;
+  await delBook(cur.id);
+  books=books.filter(b=>b.id!==cur.id); cur=books[0];
+  await setMeta('lastBook',cur.id);
+  renderBookSelect(); render(); $('#menuSheet').classList.remove('show'); toast('지웠습니다');
+});
+
+/* ============================================================
+   껍데기 — 오프라인·창 잠금·영구 저장
+   아이폰 사파리에는 파일 연결이 없으므로 내보내기가 그 자리를 대신한다.
+   ============================================================ */
+const APP_VERSION='2026-08-07a';
+function save(){ if(cur&&!(window.Shell&&Shell.isReadOnly())) putBook(cur); }
+
+async function renderStore(){
+  if(!window.Shell) return;
+  const s=await Shell.status();
+  const last=await getMeta('lastExport');
+  const days=last?Math.floor((Date.now()-last)/86400000):null;
+  const rows=[];
+  rows.push('<div style="display:flex;gap:8px;padding:5px 0"><span style="color:var(--ink-faint);min-width:86px">판</span>'+
+    '<span>'+APP_VERSION+(s.offline?' · 오프라인으로도 열림':'')+'</span></div>');
+  rows.push('<div style="display:flex;gap:8px;padding:5px 0"><span style="color:var(--ink-faint);min-width:86px">쓴 자리</span>'+
+    '<span>'+Shell.fmtBytes(s.usage)+'</span></div>');
+  rows.push('<div style="display:flex;gap:8px;padding:5px 0"><span style="color:var(--ink-faint);min-width:86px">영구 저장</span>'+
+    '<span style="color:'+(s.persisted?'var(--indigo)':'var(--amber)')+'">'+(s.persisted?'등록됨':'등록 안 됨')+'</span></div>');
+  rows.push('<div style="display:flex;gap:8px;padding:5px 0"><span style="color:var(--ink-faint);min-width:86px">마지막 내보냄</span>'+
+    '<span style="color:'+(days!==null&&days<7?'var(--ink)':'var(--amber)')+'">'+
+    (last?(days===0?'오늘':days+'일 전'):'없음')+'</span></div>');
+  $('#storeRows').innerHTML=rows.join('');
+
+  const acts=[];
+  if(s.canInstall) acts.push('<button class="item" data-act="install"><span class="grow">앱으로 설치</span></button>');
+  if(!s.persisted) acts.push('<button class="item" data-act="persist"><span class="grow">영구 저장 요청<span class="sub">브라우저에 지우지 말아 달라고 등록합니다</span></span></button>');
+  if(s.canFile) acts.push('<button class="item" data-act="link"><span class="grow">'+(s.file?'다른 파일에 연결':'파일에 연결')+'<span class="sub">'+(s.file?esc(s.file):'저장할 때마다 그 파일에도 적어 둡니다')+'</span></span></button>');
+  const box=$('#storeActions');
+  box.innerHTML=acts.join('');
+  box.style.display=acts.length?'block':'none';
+  box.querySelectorAll('[data-act]').forEach(b=>b.onclick=async()=>{
+    try{
+      if(b.dataset.act==='install') await Shell.install();
+      if(b.dataset.act==='persist') toast(await Shell.askPersist()?'등록했습니다':'브라우저가 아직 받아주지 않습니다');
+      if(b.dataset.act==='link'){ const n=await Shell.linkFile(); toast('「'+n+'」에 연결했습니다'); }
+    }catch(err){ if(err&&err.name!=='AbortError') toast('하지 못했습니다'); }
+    renderStore();
+  });
+}
+function applyReadOnly(on){
+  ta.disabled=on;
+  $('#btnCatch').disabled=on||!ta.value.trim();
+  $('#btnExport').disabled=on;
+  if(on) ta.placeholder='다른 창에서 열려 있어 여기서는 읽기만 됩니다';
+}
+
+/* ============================================================
+   시작
+   ============================================================ */
+(async function init(){
+  await openDB();
+  books=await allBooks();
+  if(!books.length){ const b=newBook('새 소설'); books=[b]; await putBook(b); }
+  const last=await getMeta('lastBook');
+  cur=books.find(b=>b.id===last)||books[0];
+  const draft=await getMeta('draft');
+  if(draft){ ta.value=draft; $('#btnCatch').disabled=!draft.trim(); }
+  renderBookSelect(); render();
+  growCatch(); measureComposer(); fitKeyboard();
+  stickBottom(true);
+  if(window.Shell){
+    await Shell.init({
+      name:'pocket', version:APP_VERSION, fileName:'주머니.json',
+      barsEl:document.getElementById('bars'),
+      exportAll:async()=>({app:'주머니 전체',version:1,exportedAt:Date.now(),books}),
+      importAll:async()=>{},
+      onReadOnly:applyReadOnly,
+      onStatus:renderStore
+    });
+  }
+})();
+window.addEventListener('pagehide',()=>{ if(cur) save(); setMeta('draft',ta.value); });
+</script>
+</body>
+</html>

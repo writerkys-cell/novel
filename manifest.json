@@ -1,0 +1,13 @@
+{
+  "name": "메모함",
+  "short_name": "메모함",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#2f6f5e",
+  "icons": [
+    { "src": "./icon-360.png", "sizes": "360x360", "type": "image/png" },
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

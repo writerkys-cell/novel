@@ -45,6 +45,9 @@
   #thumbs { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
   #thumbs figure { margin:0; position:relative; width:72px; height:72px; }
   #thumbs img, #thumbs .raw { width:72px; height:72px; object-fit:cover; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--muted); background:var(--chip); }
+  #thumbs .doc { width:auto; min-width:72px; max-width:160px; padding:0 10px; flex-direction:column; gap:2px; }
+  #thumbs .doc b { font-size:12px; } #thumbs .doc small { font-size:11px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #thumbs figure.docfig { width:auto; }
   #thumbs button { position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:none; background:var(--ink); color:var(--bg); font-size:14px; line-height:22px; padding:0; }
   .hint { font-size:13px; color:var(--muted); margin:6px 0 0; }
   #listHead { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:8px; }
@@ -108,8 +111,10 @@
     <div class="row">
       <button class="btn" id="btnCamera" type="button">📷 촬영</button>
       <button class="btn" id="btnPick" type="button">🖼 사진 고르기</button>
+      <button class="btn" id="btnPdf" type="button">📄 PDF 붙이기</button>
       <input type="file" id="fileCamera" accept="image/*" capture="environment">
       <input type="file" id="filePick" accept="image/*" multiple>
+      <input type="file" id="filePdf" accept="application/pdf,.pdf" multiple>
     </div>
     <div id="thumbs"></div>
     <div class="row" style="margin-top:12px">
@@ -130,7 +135,7 @@
     </div>
     <ul id="list"></ul>
     <div id="empty">아직 없습니다. 위에 적고 "폰에 저장"을 누르세요.</div>
-    <p class="hint">보내기 전까지 메모는 이 폰에만 있습니다. 집에 오면 "맥으로 보내기"를 눌러 인박스로 옮기세요. 보낸 것은 폰에서 지워집니다.</p>
+    <p class="hint">vFlat 등에서 스캔한 PDF는 "파일에 저장"으로 내보낸 뒤 📄 PDF 붙이기로 고르면 메모와 함께 갑니다. 보내기 전까지 메모는 이 폰에만 있습니다. 집에 오면 "맥으로 보내기"를 눌러 인박스로 옮기세요. 보낸 것은 폰에서 지워집니다.</p>
   </section>
 </main>
 <div id="toast"></div>
@@ -146,6 +151,7 @@
   const tagEl = $('tag'), titleEl = $('title'), textEl = $('text'), thumbs = $('thumbs'), statusEl = $('status');
   const btnSave = $('btnSave'), btnCancel = $('btnCancel'), btnDelete = $('btnDelete'), btnSend = $('btnSend'), btnExport = $('btnExport');
   let photos = [];      // {name, type, data(dataURL), raw?}
+  let docs = [];        // PDF 첨부 {name, type, data(dataURL), size}
   let editing = null;   // 고치는 중인 메모
   let online = false;
   let macUrl = (recall('macUrl') || DEFAULT_MAC).replace(/\/+$/, '');
@@ -206,9 +212,19 @@
   }
   const asDataURL = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(file); });
   function renderThumbs() {
-    thumbs.innerHTML = photos.map((p, i) => `<figure>${p.raw ? `<div class="raw">${esc((p.type.split('/')[1] || '사진').toUpperCase())}</div>` : `<img src="${p.data}" alt="">`}<button type="button" data-i="${i}" aria-label="사진 빼기">×</button></figure>`).join('');
+    thumbs.innerHTML = photos.map((p, i) => `<figure>${p.raw ? `<div class="raw">${esc((p.type.split('/')[1] || '사진').toUpperCase())}</div>` : `<img src="${p.data}" alt="">`}<button type="button" data-i="${i}" aria-label="사진 빼기">×</button></figure>`).join('')
+      + docs.map((d, i) => `<figure class="docfig"><div class="raw doc"><b>PDF ${mb(d.size)}</b><small>${esc(d.name)}</small></div><button type="button" data-d="${i}" aria-label="PDF 빼기">×</button></figure>`).join('');
   }
-  thumbs.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; photos.splice(+b.dataset.i, 1); renderThumbs(); });
+  const mb = (n) => (n / 1048576).toFixed(n > 10485760 ? 0 : 1) + 'MB';
+  thumbs.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.d !== undefined) docs.splice(+b.dataset.d, 1); else photos.splice(+b.dataset.i, 1); renderThumbs(); });
+  async function addDocs(list) {
+    for (const f of list) {
+      if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { say('PDF만 붙일 수 있습니다'); continue; }
+      try { docs.push({ name: f.name || '문서.pdf', type: 'application/pdf', data: await asDataURL(f), size: f.size }); say(`PDF ${mb(f.size)} 붙였습니다`); }
+      catch (e) { say('PDF를 읽지 못했습니다'); }
+    }
+    renderThumbs();
+  }
   async function addFiles(list) {
     for (const f of list) {
       try { photos.push(await shrink(f)); }
@@ -221,29 +237,31 @@
   }
   $('btnCamera').onclick = () => $('fileCamera').click();
   $('btnPick').onclick = () => $('filePick').click();
+  $('btnPdf').onclick = () => $('filePdf').click();
+  $('filePdf').onchange = (e) => { addDocs(e.target.files); e.target.value = ''; };
   $('fileCamera').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
   $('filePick').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
 
   // ---------- 쓰기 · 고치기 ----------
   const draftKeys = { title: 'draftTitle', text: 'draftText' };
   function clearForm() {
-    editing = null; titleEl.value = ''; textEl.value = ''; photos = []; renderThumbs();
+    editing = null; titleEl.value = ''; textEl.value = ''; photos = []; docs = []; renderThumbs();
     remember(draftKeys.title, ''); remember(draftKeys.text, '');
     btnSave.textContent = '폰에 저장'; btnCancel.style.display = 'none'; btnDelete.style.display = 'none';
   }
   function openMemo(m) {
-    editing = m; tagEl.value = m.project || ''; titleEl.value = m.title || ''; textEl.value = m.text || ''; photos = (m.photos || []).slice(); renderThumbs();
+    editing = m; tagEl.value = m.project || ''; titleEl.value = m.title || ''; textEl.value = m.text || ''; photos = (m.photos || []).slice(); docs = (m.files || []).slice(); renderThumbs();
     btnSave.textContent = '고친 것 저장'; btnCancel.style.display = ''; btnDelete.style.display = '';
     window.scrollTo({ top: 0, behavior: 'smooth' }); textEl.focus();
   }
   btnSave.onclick = async () => {
     const title = titleEl.value.trim(), text = textEl.value.trim();
-    if (!text && !title && !photos.length) return say('적은 것도 사진도 없습니다');
+    if (!text && !title && !photos.length && !docs.length) return say('적은 것도 사진도 없습니다');
     btnSave.disabled = true;
     try {
       const m = editing
-        ? { ...editing, project: tagEl.value, title, text, photos, edited: new Date().toISOString() }
-        : { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), project: tagEl.value, title, text, photos, created: new Date().toISOString(), device: DEVICE };
+        ? { ...editing, project: tagEl.value, title, text, photos, files: docs, edited: new Date().toISOString() }
+        : { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), project: tagEl.value, title, text, photos, files: docs, created: new Date().toISOString(), device: DEVICE };
       await putMemo(m);
       const was = !!editing; clearForm(); const n = await renderList();
       say(was ? '고쳤습니다' : `폰에 저장했습니다 (${n}개 모임)`);
@@ -262,20 +280,21 @@
 
   // ---------- 목록 ----------
   const fmtDate = (iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
-  const firstLine = (m) => (m.title || (m.text || '').split('\n').find((l) => l.trim()) || '(사진만)').trim();
+  const firstLine = (m) => (m.title || (m.text || '').split('\n').find((l) => l.trim()) || (m.files && m.files.length ? m.files[0].name : '(사진만)')).trim();
   async function renderList() {
     const items = await allMemos();
     const list = $('list');
     list.innerHTML = items.slice().reverse().map((m) => `
       <li data-id="${m.id}">
         <span class="t">${esc(firstLine(m))}${m.project ? `<span class="tag">${esc(m.project)}</span>` : ''}</span>
-        <span class="d">${fmtDate(m.created)}${m.photos && m.photos.length ? ` · 📷${m.photos.length}` : ''}</span>
+        <span class="d">${fmtDate(m.created)}${m.photos && m.photos.length ? ` · 📷${m.photos.length}` : ''}${m.files && m.files.length ? ` · 📄${m.files.length}` : ''}</span>
         ${m.title && m.text ? `<span class="s">${esc(m.text.split('\n')[0])}</span>` : ''}
       </li>`).join('');
     $('empty').style.display = items.length ? 'none' : '';
     const photosN = items.reduce((a, m) => a + (m.photos ? m.photos.length : 0), 0);
     $('count').textContent = `폰에 있는 메모 ${items.length}개`;
-    $('sizeInfo').textContent = photosN ? `사진 ${photosN}장` : '';
+    const docsN = items.reduce((a, m) => a + (m.files ? m.files.length : 0), 0);
+    $('sizeInfo').textContent = [photosN ? `사진 ${photosN}장` : '', docsN ? `PDF ${docsN}개` : ''].filter(Boolean).join(' · ');
     btnSend.disabled = btnExport.disabled = !items.length;
     list.onclick = (e) => { const li = e.target.closest('li'); if (!li) return; const m = items.find((x) => x.id === li.dataset.id); if (m) openMemo(m); };
     return items.length;
@@ -313,8 +332,11 @@
     const stem = `${stamp}_${slugify(m.title || m.text)}`;
     const files = [];
     const names = (m.photos || []).map((ph, i) => { const n = `${stem}_${i + 1}${extOf(ph)}`; files.push(new File([dataURLtoBlob(ph.data, ph.type)], n, { type: ph.type })); return n; });
+    const safeName = (n) => slugify(n.replace(/\.pdf$/i, ''), 40);
+    const docNames = (m.files || []).map((d) => { const n = `${stem}_${safeName(d.name)}.pdf`; files.push(new File([dataURLtoBlob(d.data, 'application/pdf')], n, { type: 'application/pdf' })); return n; });
     const lines = [`# ${m.title || slugify(m.text)}`, '', `- 작성: ${stamp.replace('_', ' ').replace(/(\d\d)(\d\d)$/, '$1:$2')}`, `- 프로젝트: ${m.project || '(미정)'}`, `- 기기: ${m.device || DEVICE}`];
     if (names.length) lines.push('- 사진: ' + names.join(', '));
+    if (docNames.length) lines.push('- 첨부: ' + docNames.join(', '));
     lines.push('', '---', '', m.text || '', '');
     files.unshift(new File([lines.join('\n')], `${stem}.md`, { type: 'text/markdown' }));
     return files;

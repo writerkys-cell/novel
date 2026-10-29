@@ -32,6 +32,7 @@
   select, input[type=text], input[type=url], textarea { width:100%; font:inherit; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
   select { appearance:none; -webkit-appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%); background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%; background-size:5px 5px; background-repeat:no-repeat; }
   textarea { min-height:160px; resize:vertical; line-height:1.6; }
+  #comment { min-height:100px; }
   select:focus, input:focus, textarea:focus { outline:2px solid var(--accent); outline-offset:1px; }
   .field { margin-bottom:10px; } .field:last-child { margin-bottom:0; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -101,12 +102,16 @@
       <select id="tag"><option value="">고르지 않음 (클로드가 분류)</option></select>
     </div>
     <div class="field">
-      <label for="title">제목 (비우면 첫 줄)</label>
-      <input type="text" id="title" placeholder="제목" autocomplete="off">
+      <label for="source">출처 (책 이름과 쪽수, 또는 본 자리 · 없으면 비움)</label>
+      <input type="text" id="source" placeholder="예: 읽는 인간 98쪽" autocomplete="off">
     </div>
     <div class="field">
-      <label for="text">메모</label>
-      <textarea id="text" placeholder="생각난 것을 적으세요"></textarea>
+      <label for="text">내용 (책의 문장, 본 것, 떠오른 것 · 남의 말은 따옴표)</label>
+      <textarea id="text" placeholder="책의 문장이나 본 것을 여기에"></textarea>
+    </div>
+    <div class="field">
+      <label for="comment">코멘트 (왜 걸렸는지, 어디에 쓰일지 · 비워도 됨)</label>
+      <textarea id="comment" placeholder="내 말은 여기에"></textarea>
     </div>
     <div class="row">
       <button class="btn" id="btnCamera" type="button">📷 촬영</button>
@@ -148,7 +153,7 @@
   const safe = (fn) => (...a) => { try { return fn(...a); } catch (e) { return undefined; } };
   const remember = safe((k, v) => localStorage.setItem(k, v)), recall = safe((k) => localStorage.getItem(k));
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const tagEl = $('tag'), titleEl = $('title'), textEl = $('text'), thumbs = $('thumbs'), statusEl = $('status');
+  const tagEl = $('tag'), textEl = $('text'), sourceEl = $('source'), commentEl = $('comment'), thumbs = $('thumbs'), statusEl = $('status');
   const btnSave = $('btnSave'), btnCancel = $('btnCancel'), btnDelete = $('btnDelete'), btnSend = $('btnSend'), btnExport = $('btnExport');
   let photos = [];      // {name, type, data(dataURL), raw?}
   let docs = [];        // PDF 첨부 {name, type, data(dataURL), size}
@@ -243,25 +248,25 @@
   $('filePick').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
 
   // ---------- 쓰기 · 고치기 ----------
-  const draftKeys = { title: 'draftTitle', text: 'draftText' };
+  const draftKeys = { text: 'draftText', source: 'draftSource', comment: 'draftComment' };
   function clearForm() {
-    editing = null; titleEl.value = ''; textEl.value = ''; photos = []; docs = []; renderThumbs();
-    remember(draftKeys.title, ''); remember(draftKeys.text, '');
+    editing = null; sourceEl.value = ''; textEl.value = ''; commentEl.value = ''; photos = []; docs = []; renderThumbs();
+    remember(draftKeys.text, ''); remember(draftKeys.source, ''); remember(draftKeys.comment, '');
     btnSave.textContent = '폰에 저장'; btnCancel.style.display = 'none'; btnDelete.style.display = 'none';
   }
   function openMemo(m) {
-    editing = m; tagEl.value = m.project || ''; titleEl.value = m.title || ''; textEl.value = m.text || ''; photos = (m.photos || []).slice(); docs = (m.files || []).slice(); renderThumbs();
+    editing = m; tagEl.value = m.project || ''; sourceEl.value = m.source || ''; textEl.value = m.text || ''; commentEl.value = m.comment || ''; photos = (m.photos || []).slice(); docs = (m.files || []).slice(); renderThumbs();
     btnSave.textContent = '고친 것 저장'; btnCancel.style.display = ''; btnDelete.style.display = '';
     window.scrollTo({ top: 0, behavior: 'smooth' }); textEl.focus();
   }
   btnSave.onclick = async () => {
-    const title = titleEl.value.trim(), text = textEl.value.trim();
-    if (!text && !title && !photos.length && !docs.length) return say('적은 것도 사진도 없습니다');
+    const text = textEl.value.trim(), source = sourceEl.value.trim(), comment = commentEl.value.trim();
+    if (!text && !photos.length && !docs.length && !comment && !source) return say('적은 것도 사진도 없습니다');
     btnSave.disabled = true;
     try {
       const m = editing
-        ? { ...editing, project: tagEl.value, title, text, photos, files: docs, edited: new Date().toISOString() }
-        : { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), project: tagEl.value, title, text, photos, files: docs, created: new Date().toISOString(), device: DEVICE };
+        ? { ...editing, project: tagEl.value, source, text, comment, photos, files: docs, edited: new Date().toISOString() }
+        : { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), project: tagEl.value, source, text, comment, photos, files: docs, created: new Date().toISOString(), device: DEVICE };
       await putMemo(m);
       const was = !!editing; clearForm(); const n = await renderList();
       say(was ? '고쳤습니다' : `폰에 저장했습니다 (${n}개 모임)`);
@@ -274,21 +279,21 @@
     if (!confirm('이 메모를 폰에서 지울까요? 되돌릴 수 없습니다.')) return;
     await delMemo(editing.id); clearForm(); await renderList(); say('지웠습니다');
   };
-  titleEl.value = recall(draftKeys.title) || ''; textEl.value = recall(draftKeys.text) || '';
-  titleEl.addEventListener('input', () => { if (!editing) remember(draftKeys.title, titleEl.value); });
+  textEl.value = recall(draftKeys.text) || ''; sourceEl.value = recall(draftKeys.source) || ''; commentEl.value = recall(draftKeys.comment) || '';
   textEl.addEventListener('input', () => { if (!editing) remember(draftKeys.text, textEl.value); });
+  sourceEl.addEventListener('input', () => { if (!editing) remember(draftKeys.source, sourceEl.value); });
+  commentEl.addEventListener('input', () => { if (!editing) remember(draftKeys.comment, commentEl.value); });
 
   // ---------- 목록 ----------
   const fmtDate = (iso) => { const d = new Date(iso); const p = (n) => String(n).padStart(2, '0'); return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
-  const firstLine = (m) => (m.title || (m.text || '').split('\n').find((l) => l.trim()) || (m.files && m.files.length ? m.files[0].name : '(사진만)')).trim();
+  const firstLine = (m) => ((m.text || '').split('\n').find((l) => l.trim()) || (m.comment || '').split('\n').find((l) => l.trim()) || m.source || (m.files && m.files.length ? m.files[0].name : '(사진만)')).trim();
   async function renderList() {
     const items = await allMemos();
     const list = $('list');
     list.innerHTML = items.slice().reverse().map((m) => `
       <li data-id="${m.id}">
         <span class="t">${esc(firstLine(m))}${m.project ? `<span class="tag">${esc(m.project)}</span>` : ''}</span>
-        <span class="d">${fmtDate(m.created)}${m.photos && m.photos.length ? ` · 📷${m.photos.length}` : ''}${m.files && m.files.length ? ` · 📄${m.files.length}` : ''}</span>
-        ${m.title && m.text ? `<span class="s">${esc(m.text.split('\n')[0])}</span>` : ''}
+        <span class="d">${fmtDate(m.created)}${m.source ? ` · ${esc(m.source)}` : ''}${m.photos && m.photos.length ? ` · 📷${m.photos.length}` : ''}${m.files && m.files.length ? ` · 📄${m.files.length}` : ''}${m.comment ? '' : ' · 코멘트 없음'}</span>
       </li>`).join('');
     $('empty').style.display = items.length ? 'none' : '';
     const photosN = items.reduce((a, m) => a + (m.photos ? m.photos.length : 0), 0);
@@ -329,15 +334,17 @@
   function filesOf(m) {
     const d = new Date(m.created); const p = (n) => String(n).padStart(2, '0');
     const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
-    const stem = `${stamp}_${slugify(m.title || m.text)}`;
+    const stem = `${stamp}_${slugify(m.text || m.comment || m.source)}`;
     const files = [];
     const names = (m.photos || []).map((ph, i) => { const n = `${stem}_${i + 1}${extOf(ph)}`; files.push(new File([dataURLtoBlob(ph.data, ph.type)], n, { type: ph.type })); return n; });
     const safeName = (n) => slugify(n.replace(/\.pdf$/i, ''), 40);
     const docNames = (m.files || []).map((d) => { const n = `${stem}_${safeName(d.name)}.pdf`; files.push(new File([dataURLtoBlob(d.data, 'application/pdf')], n, { type: 'application/pdf' })); return n; });
-    const lines = [`# ${m.title || slugify(m.text)}`, '', `- 작성: ${stamp.replace('_', ' ').replace(/(\d\d)(\d\d)$/, '$1:$2')}`, `- 프로젝트: ${m.project || '(미정)'}`, `- 기기: ${m.device || DEVICE}`];
+    const lines = [`# ${slugify(m.text || m.comment || m.source)}`, '', `- 작성: ${stamp.replace('_', ' ').replace(/(\d\d)(\d\d)$/, '$1:$2')}`];
+    if (m.source) lines.push(`- 출처: ${m.source}`);
+    lines.push(`- 프로젝트: ${m.project || '(미정)'}`, `- 기기: ${m.device || DEVICE}`);
     if (names.length) lines.push('- 사진: ' + names.join(', '));
     if (docNames.length) lines.push('- 첨부: ' + docNames.join(', '));
-    lines.push('', '---', '', m.text || '', '');
+    lines.push('', '---', '', m.text || '', '', '## 코멘트', '', m.comment || '', '');
     files.unshift(new File([lines.join('\n')], `${stem}.md`, { type: 'text/markdown' }));
     return files;
   }

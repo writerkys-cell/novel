@@ -1,6 +1,6 @@
 // 메모함 폰 — 서비스 워커. 페이지를 폰에 저장해 두어 인터넷이 없어도 바로 열리게 한다.
 // 맥으로 보내는 요청(다른 주소)은 그대로 통과시킨다.
-const CACHE = 'memobox-phone-v3';
+const CACHE = 'memobox-phone-v4';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg', './icon-360.png'];
 
 self.addEventListener('install', (e) => {
